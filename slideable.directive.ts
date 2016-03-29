@@ -2,7 +2,7 @@
  * Angular 2 directive that turn element to slider handle.
  * Created by Targus on 23.03.2016.
  *
- * @version 1.0b1
+ * @version 1.0.2
  * @author Bogdan Shapoval (targus) <it.targus@gmail.com>
  */
 
@@ -34,20 +34,20 @@ export class SlideAbleDirective {
         }
     };
 
-    // Setting margins of slideable area
-    @Input() set rightMargin(signature:string) {
+    // Setting edges of slideable area
+    @Input() set rightEdge(signature:string) {
         this.signatures.right = signature;
     }
 
-    @Input() set leftMargin(signature:string) {
+    @Input() set leftEdge(signature:string) {
         this.signatures.left = signature;
     }
 
-    @Input() set topMargin(signature:string) {
+    @Input() set topEdge(signature:string) {
         this.signatures.top = signature;
     }
 
-    @Input() set bottomMargin(signature:string) {
+    @Input() set bottomEdge(signature:string) {
         this.signatures.bottom = signature;
     }
 
@@ -132,7 +132,7 @@ export class SlideAbleDirective {
     }
 
     /**
-     * Move handle and change value in accordinf to coordinate
+     * Move handle and change value in according to coordinate
      *
      * @param x
      * @param y
@@ -145,7 +145,6 @@ export class SlideAbleDirective {
             if (x > this.boundingRect.right) x = this.boundingRect.right;
             if (!!this.dynamicLimitRect.left && x < this.dynamicLimitRect.left) x = this.dynamicLimitRect.left;
             if (!!this.dynamicLimitRect.right && x > this.dynamicLimitRect.right) x = this.dynamicLimitRect.right;
-            //this.el.nativeElement.style.left = Math.round(100 * (x - this.boundingRect.left) / (this.boundingRect.right - this.boundingRect.left)) + '%';
             this.el.nativeElement.style.left = x - this.zeroLeft - Math.round(this.el.nativeElement.getBoundingClientRect().width / 2) + 'px';
         }
         if (this.direction == 'vertical' || this.direction == 'both') {
@@ -153,7 +152,6 @@ export class SlideAbleDirective {
             if (y > this.boundingRect.bottom) y = this.boundingRect.bottom;
             if (!!this.dynamicLimitRect.top && y < this.dynamicLimitRect.top) y = this.dynamicLimitRect.top;
             if (!!this.dynamicLimitRect.bottom && y > this.dynamicLimitRect.bottom) y = this.dynamicLimitRect.bottom;
-            //this.el.nativeElement.style.top = Math.round(100 * (y - this.boundingRect.top) / (this.boundingRect.bottom - this.boundingRect.top)) + '%';
             this.el.nativeElement.style.top = y - this.zeroTop - Math.round(this.el.nativeElement.getBoundingClientRect().height / 2) + 'px';
         }
 
