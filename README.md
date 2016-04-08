@@ -11,6 +11,8 @@ Angular 2 directive that turn element to slider handle.
 * [Usage](#usage)
     - [Directive](#directive)
     - [Events](#events)
+    - [Interfaces](#interfaces)
+    - [CallBacks] (#callbacks)
 
 
 # Install
@@ -31,6 +33,7 @@ npm install ng2-slideable-directive
           dynamicRightLimit="right-handle"
           (onStopSliding)="stopSlidingHandler($event)"
           (onSliding)="slidingHandler($event)"
+          step="20"
           id="left-handle"
           class="ui-slider-handle"
           style="left: 0%;"></span>
@@ -39,6 +42,7 @@ npm install ng2-slideable-directive
           dynamicLeftLimit="left-handle"
           (onStopSliding)="stopSlidingHandler($event)"
           (onSliding)="slidingHandler($event)"
+          step="20"
           id="right-handle"
           class="ui-slider-handle"
           style="left: 100%;"></span>
@@ -85,6 +89,11 @@ In this example sliding area will have follow edges - at left it will be left ed
 Potentially you may need dynamically changed edge(s) - for example in range slider left handle can't be the right of right handle, but right handle have dynamical position.
 In these cases `dynamic****Limit` will help you. Format is the same as in `****Edge` attributes.
 
+### `step`
+
+This attribute specify step of sliding in pixels
+Default value: "1"
+
 
 
 ## Events
@@ -96,4 +105,55 @@ Event `onSliding` generated during slideable element slides
 ### `onStopSliding`
 
 Event `onStopSliding` generated during slideable element stoped to slide, mouse button was released 
- 
+
+### `onInit`
+
+Event `onInit` generated during initialisation of directive (ngOnInit)
+Return object - implementation of interface [`IEventSlideAble`](#ieventslideable)
+Return directive object instance as event object
+
+
+
+## Interfaces
+
+### `IEventSlideAble`
+Events objects of SlideAbleDirective implements this interface
+Interface properties:
+`type`: `string` - type of event (`'init'`, `'sliding'`, `'stop'`)
+`boundingRect`: `ClientRect` - result of standart DOM-document function `getBoundingClientRect()`, edges of slideable element
+`relativePercentHorisontal`: `number` - relative horisontal position of sliding element in percents
+`relativePercentVertical`: `number` - relative vertical position of slidable element in percents
+`elementId`: `string` - value of slidable element `id` attribute
+`instance`: `SlideAbleDirective` - instance of certain SlideAbleDirective object
+
+
+
+## CallBacks
+
+You can ser callback functions from parent
+Example:
+```TypeScript
+    initHandlers(name: string, event: IEventSlideAble) {
+        // Example of using callback function before redraw
+        event.instance.checkXBeforeRedraw = function(x, y) {
+            return true;
+        }
+        this.handlers[name] = event.instance;
+    }
+```
+
+### `checkXBeforeRedraw(x, y)`
+This functuion called changing horisontal position. If it returns `true` - element will be moved by horisontal axis, if `false` - will not
+#### Arguments
+`x`: `number` - current horisontal position of mouse pointer
+`y`: `number` - current vertical position of mouse pointer
+#### Result
+`boolean`
+
+### `checkYBeforeRedraw(x, y)`
+This functuion called changing vertical position. If it returns `true` - element will be moved by vertical axis, if `false` - will not
+#### Arguments
+`x`: `number` - current horisontal position of mouse pointer
+`y`: `number` - current vertical position of mouse pointer
+#### Result
+`boolean`

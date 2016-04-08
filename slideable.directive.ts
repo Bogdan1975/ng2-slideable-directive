@@ -2,7 +2,7 @@
  * Angular 2 directive that turn element to slider handle.
  * Created by Targus on 23.03.2016.
  *
- * @version 1.0.2
+ * @version 1.0.4
  * @author Bogdan Shapoval (targus) <it.targus@gmail.com>
  */
 
@@ -13,6 +13,26 @@ export class BoundingRectClass {
     right:number;
     top:number;
     bottom:number;
+}
+
+export interface IEventSlideAble {
+    type: string;
+    boundingRect: ClientRect;
+    relativePercentHorisontal: number;
+    relativePercentVertical: number;
+    elementId: string;
+    instance: SlideAbleDirective;
+}
+export class EventSlideAble implements IEventSlideAble {
+    // type: string;
+    boundingRect: ClientRect;
+    relativePercentHorisontal: number;
+    relativePercentVertical: number;
+    elementId: string;
+    // instance: SlideAbleDirective;
+    
+    constructor(public type: string, public instance:SlideAbleDirective){
+    }
 }
 
 @Directive({
@@ -67,11 +87,15 @@ export class SlideAbleDirective {
     @Input() set dynamicBottomLimit(signature:string) {
         this.dynamicLimits.bottom = signature;
     }
+    
+    @Input() step: any = 1;
+    @Input() parent: any = null;
 
     @Output('onSliding') slidingEvent = new EventEmitter();
     @Output('onStopSliding') stopSlidingEvent = new EventEmitter();
+    @Output('onInit') initEvent = new EventEmitter();
 
-    private boundingRect:BoundingRectClass;
+    public boundingRect:BoundingRectClass;
     private dynamicLimitRect:BoundingRectClass;
 
     private signatures:any = {
@@ -89,6 +113,13 @@ export class SlideAbleDirective {
 
     private zeroLeft;
     private zeroTop;
+    
+    // Dummies for callback functions
+    public checkXBeforeRedraw = null;
+    public checkYBeforeRedraw = null;
+
+    private lastX = null;
+    private lastY = null;
 
     ngOnInit() {
         this.dynamicLimitRect = this.dynamicLimitRect || new BoundingRectClass();
@@ -98,6 +129,8 @@ export class SlideAbleDirective {
         if (!this.signatures.right) this.signatures.right = 'parent:right';
         if (!this.signatures.top) this.signatures.top = 'parent:top';
         if (!this.signatures.bottom) this.signatures.bottom = 'parent:bottom';
+
+        this.initEvent.emit(new EventSlideAble('init', this));
     }
 
     slideStart(e) {
@@ -112,16 +145,8 @@ export class SlideAbleDirective {
         // Calculate dynamic limits every time when sliding was started
         this.calcDynamicLimits();
 
-        // We can't calculate any values that depends from coordinates in ngOnInit, because may be not all page was rendered
-        // That's why we calculate these values here
-        if (!this.boundingRect) {
-            this.boundingRect = new BoundingRectClass();
-            this.calcMargins();
-        }
-        if (!this.zeroLeft || !this.zeroTop) {
-            this.zeroLeft = this.el.nativeElement.getBoundingClientRect().left - parseInt(getComputedStyle(this.el.nativeElement).left);
-            this.zeroTop = this.el.nativeElement.getBoundingClientRect().top - parseInt(getComputedStyle(this.el.nativeElement).top);
-        }
+
+
 
         function dragProcess(event) {
             this.redraw(event.clientX, event.clientY);
@@ -140,32 +165,76 @@ export class SlideAbleDirective {
      */
     redraw(x, y) {
 
-        if (this.direction == 'horisontal' || this.direction == 'both') {
-            if (x < this.boundingRect.left) x = this.boundingRect.left;
-            if (x > this.boundingRect.right) x = this.boundingRect.right;
-            if (!!this.dynamicLimitRect.left && x < this.dynamicLimitRect.left) x = this.dynamicLimitRect.left;
-            if (!!this.dynamicLimitRect.right && x > this.dynamicLimitRect.right) x = this.dynamicLimitRect.right;
-            this.el.nativeElement.style.left = x - this.zeroLeft - Math.round(this.el.nativeElement.getBoundingClientRect().width / 2) + 'px';
-        }
-        if (this.direction == 'vertical' || this.direction == 'both') {
-            if (y < this.boundingRect.top) y = this.boundingRect.top;
-            if (y > this.boundingRect.bottom) y = this.boundingRect.bottom;
-            if (!!this.dynamicLimitRect.top && y < this.dynamicLimitRect.top) y = this.dynamicLimitRect.top;
-            if (!!this.dynamicLimitRect.bottom && y > this.dynamicLimitRect.bottom) y = this.dynamicLimitRect.bottom;
-            this.el.nativeElement.style.top = y - this.zeroTop - Math.round(this.el.nativeElement.getBoundingClientRect().height / 2) + 'px';
+        // We can't calculate any values that depends from coordinates in ngOnInit, because may be not all page was rendered
+        // That's why we calculate these values here
+        if (!this.boundingRect) {
+            this.boundingRect = new BoundingRectClass();
+            this.calcMargins();
         }
 
-        this.slidingEvent.emit(this.prepareEventData());
+        if (!this.zeroLeft || !this.zeroTop) {
+            this.zeroLeft = this.el.nativeElement.getBoundingClientRect().left - parseInt(getComputedStyle(this.el.nativeElement).left);
+            this.zeroTop = this.el.nativeElement.getBoundingClientRect().top - parseInt(getComputedStyle(this.el.nativeElement).top);
+        }
+
+        if (this.direction == 'horisontal' || this.direction == 'both') {
+            if (this.lastX) {
+                let k = (x - this.lastX) / this.step;
+                x = this.lastX + Math.round(k) * this.step;
+            }
+            
+            if (x - this.boundingRect.left < -0.5) {
+                x = this.lastX + Math.ceil((this.boundingRect.left - this.lastX) / this.step) * this.step;
+            }
+            if (x - this.boundingRect.right > 0.5) {
+                x = this.lastX + Math.floor((this.boundingRect.right - this.lastX) / this.step) * this.step;
+            }
+
+            if (!!this.dynamicLimitRect.left && x < this.dynamicLimitRect.left) x = this.dynamicLimitRect.left;
+            if (!!this.dynamicLimitRect.right && x > this.dynamicLimitRect.right) x = this.dynamicLimitRect.right;
+            
+            // Check callback result to make decigion change horisontal position or not
+            if ((typeof(this.checkXBeforeRedraw) !== 'function' || this.checkXBeforeRedraw(x, y)) && x != this.lastX) {
+                this.el.nativeElement.style.left = x - this.zeroLeft - Math.round(this.el.nativeElement.getBoundingClientRect().width / 2) + 'px';
+                this.lastX = x;
+            }
+        }
+
+        if (this.direction == 'vertical' || this.direction == 'both') {
+            if (this.lastY) {
+                let k = (y - this.lastY) / this.step;
+                y = this.lastY + Math.round(k) * this.step;
+            }
+
+            if (y - this.boundingRect.top < -0.5) {
+                y = this.lastY + Math.ceil((this.boundingRect.top - this.lastY) / this.step) * this.step;
+            }
+            if (y - this.boundingRect.bottom > 0.5) {
+                y = this.boundingRect.bottom;
+                y = this.lastY + Math.floor((this.boundingRect.bottom - this.lastY) / this.step) * this.step;
+            }
+
+            if (!!this.dynamicLimitRect.top && y < this.dynamicLimitRect.top) y = this.dynamicLimitRect.top;
+            if (!!this.dynamicLimitRect.bottom && y > this.dynamicLimitRect.bottom) y = this.dynamicLimitRect.bottom;
+
+            // Check callback result to make decigion change horisontal position or not
+            if ((typeof(this.checkYBeforeRedraw) !== 'function' || this.checkYBeforeRedraw(x, y)) && y != this.lastY) {
+                this.el.nativeElement.style.top = y - this.zeroTop - Math.round(this.el.nativeElement.getBoundingClientRect().height / 2) + 'px';
+                this.lastY = y;
+            }
+        }
+
+        this.slidingEvent.emit(this.prepareEventData('sliding'));
     }
 
     slideStop(event) {
-        this.stopSlidingEvent.emit(this.prepareEventData());
+        this.stopSlidingEvent.emit(this.prepareEventData('stop'));
         document.onmousemove = null;
         document.onmouseup = null;
     }
 
-    prepareEventData() {
-        let result = {};
+    prepareEventData(type) :IEventSlideAble {
+        let result = new EventSlideAble(type, this);
         result['boundingRect'] = this.el.nativeElement.getBoundingClientRect();
         result['relativePercentHorisontal'] = Math.round(100 * (result['boundingRect'].left + Math.round(result['boundingRect'].width / 2) - this.boundingRect.left) / (this.boundingRect.right - this.boundingRect.left));
         result['relativePercentVertical'] = Math.round(100 * (result['boundingRect'].top + Math.round(result['boundingRect'].height / 2) - this.boundingRect.top) / (this.boundingRect.bottom - this.boundingRect.top));
