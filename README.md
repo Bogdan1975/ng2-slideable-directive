@@ -7,13 +7,20 @@ Status:
 
 Angular 2 directive that turn element to slider handle.
 
+This directive is used by [Angular 2 Slider Component](https://github.com/Bogdan1975/ng2-slider-component)
+
+* [Dependencies](#dependencies)
 * [Install](#install)
 * [Usage](#usage)
     - [Directive](#directive)
     - [Events](#events)
     - [Interfaces](#interfaces)
-    - [CallBacks] (#callbacks)
+    - [CallBacks](#callbacks)
 
+
+# Dependencies
+
+- [Angular 2](https://github.com/angular/angular)  `npm install angular2`
 
 # Install
 
@@ -60,19 +67,25 @@ The `slideable` directive makes DOM-element as slideable
 ### `slideDirection`
 
 The `slideDirection` attribute set a type of sliding. 
+
 Possible values: `horisontal`, `vertical`, `both`
+
 Default value: `both`
 
 ### `boundElement`
 
 This attribute specify ID of element wich edges will be edges of sliding area
+
 Value: id of DOM-elemnt
+
 If this attribute is not defined, current parent of sliding element became bounding element 
+
 Default value: `parent`
 
 ### `rightEdge`, `leftEdge`, `topEdge`, `bottomEdge`
 
 This attributes set any edge separately. This attributes override `boundElement` attribute.
+
 Value format: `elementId:side`, where `elementId` is ID of DOM-element and `side` can be valued as `left`, `right`, `top`, `bottom`, `center-x` or `center-y`
 
 ```html
@@ -87,16 +100,42 @@ In this example sliding area will have follow edges - at left it will be left ed
 ### `dynamicRightLimit`, `dynamicLeftLimit`, `dynamicTopLimit`, `dynamicBottomLimit`
 
 Potentially you may need dynamically changed edge(s) - for example in range slider left handle can't be the right of right handle, but right handle have dynamical position.
+
 In these cases `dynamic****Limit` will help you. Format is the same as in `****Edge` attributes.
 
 ### `step`
 
 This attribute specify step of sliding in pixels
+
 Default value: "1"
 
+### `normalStyle`, `slidingStyle`
+
+This attributes set styles of slideable element in normal and sliding modes
+
+```html
+<span slideAble
+      boundElement="container"
+      [normalStyle]="{ 'background-color': 'green'}"
+      [slidingStyle]="{
+            'border-radius': '9px',
+            'background-color': 'red'
+      }"
+</span>
+```
 
 
 ## Events
+
+### `onInit`
+
+Event `onInit` generated during initialisation of directive (ngOnInit)
+
+Return object - implementation of interface [`IEventSlideAble`](#ieventslideable)
+
+### `onStartSliding`
+
+Event `onStartSliding` generated when mouse button was pressed and slideable element start to slide,  
 
 ### `onSliding`
 
@@ -104,13 +143,8 @@ Event `onSliding` generated during slideable element slides
 
 ### `onStopSliding`
 
-Event `onStopSliding` generated during slideable element stoped to slide, mouse button was released 
+Event `onStopSliding` generated when slideable element stoped to slide, mouse button was released 
 
-### `onInit`
-
-Event `onInit` generated during initialisation of directive (ngOnInit)
-Return object - implementation of interface [`IEventSlideAble`](#ieventslideable)
-Return directive object instance as event object
 
 
 
@@ -118,12 +152,19 @@ Return directive object instance as event object
 
 ### `IEventSlideAble`
 Events objects of SlideAbleDirective implements this interface
+
 Interface properties:
+
 `type`: `string` - type of event (`'init'`, `'sliding'`, `'stop'`)
+
 `boundingRect`: `ClientRect` - result of standart DOM-document function `getBoundingClientRect()`, edges of slideable element
+
 `relativePercentHorisontal`: `number` - relative horisontal position of sliding element in percents
+
 `relativePercentVertical`: `number` - relative vertical position of slidable element in percents
+
 `elementId`: `string` - value of slidable element `id` attribute
+
 `instance`: `SlideAbleDirective` - instance of certain SlideAbleDirective object
 
 
@@ -131,6 +172,7 @@ Interface properties:
 ## CallBacks
 
 You can ser callback functions from parent
+
 Example:
 ```TypeScript
     initHandlers(name: string, event: IEventSlideAble) {
@@ -146,7 +188,9 @@ Example:
 This functuion called changing horisontal position. If it returns `true` - element will be moved by horisontal axis, if `false` - will not
 #### Arguments
 `x`: `number` - current horisontal position of mouse pointer
+
 `y`: `number` - current vertical position of mouse pointer
+
 #### Result
 `boolean`
 
@@ -154,6 +198,8 @@ This functuion called changing horisontal position. If it returns `true` - eleme
 This functuion called changing vertical position. If it returns `true` - element will be moved by vertical axis, if `false` - will not
 #### Arguments
 `x`: `number` - current horisontal position of mouse pointer
+
 `y`: `number` - current vertical position of mouse pointer
+
 #### Result
 `boolean`

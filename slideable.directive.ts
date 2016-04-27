@@ -1,12 +1,13 @@
 /**
  * Angular 2 directive that turn element to slider handle.
  * Created by Targus on 23.03.2016.
+ * Last changed: 15.04.2016
  *
  * @version 1.0.4
  * @author Bogdan Shapoval (targus) <it.targus@gmail.com>
  */
 
-import {Directive, Input, Output, ElementRef, EventEmitter} from 'angular2/core'
+import {Directive, Input, Output, Renderer, ElementRef, EventEmitter} from 'angular2/core'
 
 export class BoundingRectClass {
     left:number;
@@ -24,15 +25,13 @@ export interface IEventSlideAble {
     instance: SlideAbleDirective;
 }
 export class EventSlideAble implements IEventSlideAble {
-    // type: string;
+    
     boundingRect: ClientRect;
     relativePercentHorisontal: number;
     relativePercentVertical: number;
     elementId: string;
-    // instance: SlideAbleDirective;
     
-    constructor(public type: string, public instance:SlideAbleDirective){
-    }
+    constructor(public type: string, public instance:SlideAbleDirective){}
 }
 
 @Directive({
@@ -87,10 +86,14 @@ export class SlideAbleDirective {
     @Input() set dynamicBottomLimit(signature:string) {
         this.dynamicLimits.bottom = signature;
     }
+
+    @Input() normalStyle: Object;
+    @Input() slidingStyle: Object;
     
     @Input() step: any = 1;
     @Input() parent: any = null;
 
+    @Output('onStartSliding') startSlidingEvent = new EventEmitter();
     @Output('onSliding') slidingEvent = new EventEmitter();
     @Output('onStopSliding') stopSlidingEvent = new EventEmitter();
     @Output('onInit') initEvent = new EventEmitter();
@@ -107,7 +110,7 @@ export class SlideAbleDirective {
 
     private dynamicLimits:any = {};
 
-    constructor(private el:ElementRef) {
+    constructor(private el:ElementRef, private renderer: Renderer) {
         console.log('SliadableDirective');
     }
 
@@ -121,6 +124,8 @@ export class SlideAbleDirective {
     private lastX = null;
     private lastY = null;
 
+    private backupStyle: Object;
+
     ngOnInit() {
         this.dynamicLimitRect = this.dynamicLimitRect || new BoundingRectClass();
         this.direction = this.direction || 'both';
@@ -133,7 +138,28 @@ export class SlideAbleDirective {
         this.initEvent.emit(new EventSlideAble('init', this));
     }
 
+    ngAfterViewInit() {
+        // Set initial styles if needed
+        if (this.normalStyle) {
+            for (let idx in this.normalStyle) {
+                this.renderer.setElementStyle(this.el.nativeElement, idx, this.normalStyle[idx]);
+            }
+        }
+
+        // Store normal styles values
+        if (this.slidingStyle) {
+            this.backupStyle = {};
+            for (let idx in this.slidingStyle) {
+                var currentStyle = window.getComputedStyle(this.el.nativeElement).getPropertyValue(idx);
+                // Get property in other way in case of FireFox
+                if (!currentStyle) currentStyle = this.el.nativeElement.style[idx];
+                this.backupStyle[idx] = currentStyle;
+            }
+        }
+    }
+
     slideStart(e) {
+        
         // deny dragging and selecting
         document.ondragstart = function () {
             return false;
@@ -145,15 +171,36 @@ export class SlideAbleDirective {
         // Calculate dynamic limits every time when sliding was started
         this.calcDynamicLimits();
 
-
-
-
         function dragProcess(event) {
             this.redraw(event.clientX, event.clientY);
         }
 
         document.onmousemove = dragProcess.bind(this);
         document.onmouseup = this.slideStop.bind(this);
+
+        if (!this.lastX && this.direction == 'vartical') {
+            this.lastX = this.el.nativeElement.getBoundingClientRect().left - parseInt(getComputedStyle(this.el.nativeElement).left) + Math.round(this.el.nativeElement.getBoundingClientRect().width / 2);
+            if (isNaN(this.lastX)) this.lastX = Math.round(this.el.nativeElement.getBoundingClientRect().width / 2);
+        }
+        if (!this.lastY && this.direction == 'horisontal') {
+            this.lastY = this.el.nativeElement.getBoundingClientRect().top - parseInt(getComputedStyle(this.el.nativeElement).top) + Math.round(this.el.nativeElement.getBoundingClientRect().height / 2);
+            if (isNaN(this.lastY)) this.lastY = Math.round(this.el.nativeElement.getBoundingClientRect().height / 2);
+        }
+
+        // Change styles
+        if (this.slidingStyle) {
+            for (let idx in this.slidingStyle) {
+                this.renderer.setElementStyle(this.el.nativeElement, idx, this.slidingStyle[idx]);
+            }
+            if (this.lastX) {
+                this.el.nativeElement.style.left = this.lastX - this.zeroLeft - Math.round(this.el.nativeElement.getBoundingClientRect().width / 2) + 'px';
+            }
+            if (this.lastY) {
+                this.el.nativeElement.style.top = this.lastY - this.zeroTop - Math.round(this.el.nativeElement.getBoundingClientRect().height / 2) + 'px';
+            }
+        }
+
+        this.startSlidingEvent.emit(this.prepareEventData('start'));
     }
 
     /**
@@ -172,9 +219,13 @@ export class SlideAbleDirective {
             this.calcMargins();
         }
 
-        if (!this.zeroLeft || !this.zeroTop) {
+        if (typeof(this.zeroLeft) === 'undefined') {
             this.zeroLeft = this.el.nativeElement.getBoundingClientRect().left - parseInt(getComputedStyle(this.el.nativeElement).left);
+            if (isNaN(this.zeroLeft)) this.zeroLeft = 0;
+        }
+        if (typeof(this.zeroTop) === 'undefined') {
             this.zeroTop = this.el.nativeElement.getBoundingClientRect().top - parseInt(getComputedStyle(this.el.nativeElement).top);
+            if (isNaN(this.zeroTop)) this.zeroTop = 0;
         }
 
         if (this.direction == 'horisontal' || this.direction == 'both') {
@@ -231,6 +282,13 @@ export class SlideAbleDirective {
         this.stopSlidingEvent.emit(this.prepareEventData('stop'));
         document.onmousemove = null;
         document.onmouseup = null;
+        if (this.backupStyle) {
+            for (let idx in this.backupStyle) {
+                this.renderer.setElementStyle(this.el.nativeElement, idx, this.backupStyle[idx]);
+            }
+            this.el.nativeElement.style.left = this.lastX - this.zeroLeft - Math.round(this.el.nativeElement.getBoundingClientRect().width / 2) + 'px';
+            this.el.nativeElement.style.top = this.lastY - this.zeroTop - Math.round(this.el.nativeElement.getBoundingClientRect().height / 2) + 'px';
+        }
     }
 
     prepareEventData(type) :IEventSlideAble {
@@ -259,6 +317,7 @@ export class SlideAbleDirective {
     // Calculating dynamic sliding limits
     calcDynamicLimits() {
         for (let idx in this.dynamicLimits) {
+            if (!this.dynamicLimits[idx]) continue;
             let el, side;
             [el, side] = this.splitSignature(this.dynamicLimits[idx]);
             if (!side) {
@@ -303,7 +362,7 @@ export class SlideAbleDirective {
                 result = boundingRect.left + Math.round(boundingRect.width / 2);
                 break;
             case 'center-y':
-                result = boundingRect.top + Math.round(boundingRect.heigth / 2);
+                result = boundingRect.top + Math.round(boundingRect.height / 2);
                 break;
             default:
                 result = null;
