@@ -7,7 +7,9 @@
  * @author Bogdan Shapoval (targus) <it.targus@gmail.com>
  */
 
-import {Directive, Input, Output, Renderer, ElementRef, EventEmitter} from 'angular2/core'
+import {Directive, Input, Output, Renderer, ElementRef, EventEmitter, ContentChildren, QueryList, ViewContainerRef} from '@angular/core'
+
+import {Ng2StyledDirective} from 'ng2-styled-directive/ng2-styled.directive'
 
 export class BoundingRectClass {
     left:number;
@@ -87,7 +89,14 @@ export class SlideAbleDirective {
         this.dynamicLimits.bottom = signature;
     }
 
+    /**
+     * @deprecated
+     */
     @Input() normalStyle: Object;
+
+    /**
+     * @deprecated
+     */
     @Input() slidingStyle: Object;
     
     @Input() step: any = 1;
@@ -97,6 +106,8 @@ export class SlideAbleDirective {
     @Output('onSliding') slidingEvent = new EventEmitter();
     @Output('onStopSliding') stopSlidingEvent = new EventEmitter();
     @Output('onInit') initEvent = new EventEmitter();
+
+    @ContentChildren(Ng2StyledDirective) _styledDirectives:QueryList<Ng2StyledDirective>;
 
     public boundingRect:BoundingRectClass;
     private dynamicLimitRect:BoundingRectClass;
@@ -110,8 +121,7 @@ export class SlideAbleDirective {
 
     private dynamicLimits:any = {};
 
-    constructor(private el:ElementRef, private renderer: Renderer) {
-        console.log('SliadableDirective');
+    constructor(private el:ElementRef, private renderer: Renderer, private _view: ViewContainerRef) {
     }
 
     private zeroLeft;
@@ -124,7 +134,9 @@ export class SlideAbleDirective {
     private lastX = null;
     private lastY = null;
 
-    private backupStyle: Object;
+    private styledInstance: any;
+    
+    private scrollPositionX: number;
 
     ngOnInit() {
         this.dynamicLimitRect = this.dynamicLimitRect || new BoundingRectClass();
@@ -139,23 +151,73 @@ export class SlideAbleDirective {
     }
 
     ngAfterViewInit() {
-        // Set initial styles if needed
-        if (this.normalStyle) {
-            for (let idx in this.normalStyle) {
-                this.renderer.setElementStyle(this.el.nativeElement, idx, this.normalStyle[idx]);
+
+        if (!this._styledDirectives.length && this.normalStyle && this.slidingStyle) {
+            // if "styleable" directive is apsent and style infromation getting in deprecated format -
+            // apply "styleable" directive with converted settings
+            // in other case deprecated settings will be ignored
+            this.styledInstance = new Ng2StyledDirective(this.el, <any>this._view);
+            var styleBlockArray = [];
+
+            if (this.normalStyle) {
+                let styleBlock = '';
+                for (let idx in this.normalStyle) {
+                    styleBlock += `${idx}: ${this.normalStyle[idx]}; `;
+                }
+                if (styleBlock) styleBlockArray.push(`{${styleBlock}}`);
             }
+
+            if (this.slidingStyle) {
+                let styleBlock = '';
+                for (let idx in this.slidingStyle) {
+                    styleBlock += `${idx}: ${this.slidingStyle[idx]}; `;
+                }
+                if (styleBlock) styleBlockArray.push(`<.sliding {${styleBlock}}`);
+            }
+            
+            this.styledInstance.styleBlock = styleBlockArray;
+            this.styledInstance.ngAfterViewInit();
+
+        } else {
+            this.styledInstance = this._styledDirectives.first;
         }
 
-        // Store normal styles values
-        if (this.slidingStyle) {
-            this.backupStyle = {};
-            for (let idx in this.slidingStyle) {
-                var currentStyle = window.getComputedStyle(this.el.nativeElement).getPropertyValue(idx);
-                // Get property in other way in case of FireFox
-                if (!currentStyle) currentStyle = this.el.nativeElement.style[idx];
-                this.backupStyle[idx] = currentStyle;
-            }
+        var timer;
+        var scrollStartX = 0;
+        var scrolling = false;
+
+        this.scrollPositionX = window.pageXOffset;
+
+        window.addEventListener("scroll", e => {
+            // if (this.direction == 'horisontal' || this.direction == 'both') {
+            //     this.zeroTop = this.el.nativeElement.getBoundingClientRect().top - parseInt(getComputedStyle(this.el.nativeElement).top) + window.pageYOffset;
+            //     if (isNaN(this.zeroTop)) this.zeroTop = 0;
+            // }
+            // if (this.direction == 'vertical' || this.direction == 'both') {
+            //     this.zeroLeft = this.el.nativeElement.getBoundingClientRect().left - parseInt(getComputedStyle(this.el.nativeElement).left) - window.pageXOffset;
+            //     if (isNaN(this.zeroLeft)) this.zeroLeft = 0;
+            // }
+
+            // this.lastX = this.el.nativeElement.getBoundingClientRect().left - parseInt(getComputedStyle(this.el.nativeElement).left) + Math.round(this.el.nativeElement.getBoundingClientRect().width / 2);
+            // if (isNaN(this.lastX)) this.lastX = Math.round(this.el.nativeElement.getBoundingClientRect().width / 2);
+
+            // if (this.lastX) this.lastX -= window.pageXOffset;
+            // if (this.zeroLeft) this.zeroLeft -= window.pageXOffset;
+
+            clearTimeout(timer);
+            if (!scrolling) scrollStartX = window.pageXOffset;
+            scrolling = true;
+            timer = setTimeout( onScrollStop , 350 );
+        });
+
+        var onScrollStop = () => {
+/*            let delta = window.pageXOffset - scrollStartX
+            if (this.lastX) this.lastX -= delta;
+            if (this.zeroLeft) this.zeroLeft -= delta;
+            scrollStartX = window.pageXOffset;
+            scrolling = false;*/
         }
+
     }
 
     slideStart(e) {
@@ -178,7 +240,7 @@ export class SlideAbleDirective {
         document.onmousemove = dragProcess.bind(this);
         document.onmouseup = this.slideStop.bind(this);
 
-        if (!this.lastX && this.direction == 'vartical') {
+        if (!this.lastX && this.direction == 'vertical') {
             this.lastX = this.el.nativeElement.getBoundingClientRect().left - parseInt(getComputedStyle(this.el.nativeElement).left) + Math.round(this.el.nativeElement.getBoundingClientRect().width / 2);
             if (isNaN(this.lastX)) this.lastX = Math.round(this.el.nativeElement.getBoundingClientRect().width / 2);
         }
@@ -187,17 +249,32 @@ export class SlideAbleDirective {
             if (isNaN(this.lastY)) this.lastY = Math.round(this.el.nativeElement.getBoundingClientRect().height / 2);
         }
 
+        if (window.pageXOffset != this.scrollPositionX) {
+            let delta = window.pageXOffset - this.scrollPositionX;
+            if (this.lastX) this.lastX -= delta;
+            if (this.zeroLeft) this.zeroLeft -= delta;
+            this.scrollPositionX = window.pageXOffset;
+        }
+
+        this.lastX = this.el.nativeElement.getBoundingClientRect().left + Math.round(this.el.nativeElement.getBoundingClientRect().width / 2);
+
+        this.boundingRect = new BoundingRectClass();
+        this.calcMargins();
+        // this.zeroLeft = this.el.nativeElement.getBoundingClientRect().left - parseInt(getComputedStyle(this.el.nativeElement).left) - window.pageXOffset;
+        // if (!this.zeroLeft) {
+        //     this.zeroLeft = this.el.nativeElement.getBoundingClientRect().left - parseInt(getComputedStyle(this.el.nativeElement).left);
+        //     if (isNaN(this.zeroLeft)) this.zeroLeft = 0;
+        // }
+
         // Change styles
-        if (this.slidingStyle) {
-            for (let idx in this.slidingStyle) {
-                this.renderer.setElementStyle(this.el.nativeElement, idx, this.slidingStyle[idx]);
-            }
-            if (this.lastX) {
-                this.el.nativeElement.style.left = this.lastX - this.zeroLeft - Math.round(this.el.nativeElement.getBoundingClientRect().width / 2) + 'px';
-            }
-            if (this.lastY) {
-                this.el.nativeElement.style.top = this.lastY - this.zeroTop - Math.round(this.el.nativeElement.getBoundingClientRect().height / 2) + 'px';
-            }
+        this.renderer.setElementClass(this.el.nativeElement, 'sliding', true);
+        if (this.lastX && (this.direction == 'horisontal' || this.direction == 'both')) {
+            // this.el.nativeElement.style.left = this.lastX - this.zeroLeft - Math.round(this.el.nativeElement.getBoundingClientRect().width / 2) + window.pageXOffset + 'px';
+            this.el.nativeElement.style.left = this.lastX - this.zeroLeft - Math.round(this.el.nativeElement.getBoundingClientRect().width / 2) + 'px';
+        }
+        if (this.lastY && (this.direction == 'vertical' || this.direction == 'both')) {
+            // this.el.nativeElement.style.top = this.lastY - this.zeroTop - Math.round(this.el.nativeElement.getBoundingClientRect().height / 2) + window.pageYOffset + 'px';
+            this.el.nativeElement.style.top = this.lastY - this.zeroTop - Math.round(this.el.nativeElement.getBoundingClientRect().height / 2) + 'px';
         }
 
         this.startSlidingEvent.emit(this.prepareEventData('start'));
@@ -218,6 +295,13 @@ export class SlideAbleDirective {
             this.boundingRect = new BoundingRectClass();
             this.calcMargins();
         }
+        
+        if (window.pageXOffset != this.scrollPositionX) {
+            let delta = window.pageXOffset - this.scrollPositionX;
+            if (this.lastX) this.lastX -= delta;
+            if (this.zeroLeft) this.zeroLeft -= delta;
+            this.scrollPositionX = window.pageXOffset;
+        }
 
         if (typeof(this.zeroLeft) === 'undefined') {
             this.zeroLeft = this.el.nativeElement.getBoundingClientRect().left - parseInt(getComputedStyle(this.el.nativeElement).left);
@@ -234,10 +318,13 @@ export class SlideAbleDirective {
                 x = this.lastX + Math.round(k) * this.step;
             }
             
-            if (x - this.boundingRect.left < -0.5) {
+            if (x - this.boundingRect.left < -0.8) {
                 x = this.lastX + Math.ceil((this.boundingRect.left - this.lastX) / this.step) * this.step;
             }
-            if (x - this.boundingRect.right > 0.5) {
+            // if (x + window.pageXOffset - this.boundingRect.right > 0.5) {
+            //     x = this.lastX  + Math.floor((this.boundingRect.right - window.pageXOffset - this.lastX) / this.step) * this.step;
+            // }
+            if (x - this.boundingRect.right > 0.8) {
                 x = this.lastX + Math.floor((this.boundingRect.right - this.lastX) / this.step) * this.step;
             }
 
@@ -246,6 +333,7 @@ export class SlideAbleDirective {
             
             // Check callback result to make decigion change horisontal position or not
             if ((typeof(this.checkXBeforeRedraw) !== 'function' || this.checkXBeforeRedraw(x, y)) && x != this.lastX) {
+                // this.el.nativeElement.style.left = x - this.zeroLeft - Math.round(this.el.nativeElement.getBoundingClientRect().width / 2) + window.pageXOffset + 'px';
                 this.el.nativeElement.style.left = x - this.zeroLeft - Math.round(this.el.nativeElement.getBoundingClientRect().width / 2) + 'px';
                 this.lastX = x;
             }
@@ -270,6 +358,7 @@ export class SlideAbleDirective {
 
             // Check callback result to make decigion change horisontal position or not
             if ((typeof(this.checkYBeforeRedraw) !== 'function' || this.checkYBeforeRedraw(x, y)) && y != this.lastY) {
+                // this.el.nativeElement.style.top = y - this.zeroTop - Math.round(this.el.nativeElement.getBoundingClientRect().height / 2) + window.pageYOffset + 'px';
                 this.el.nativeElement.style.top = y - this.zeroTop - Math.round(this.el.nativeElement.getBoundingClientRect().height / 2) + 'px';
                 this.lastY = y;
             }
@@ -282,12 +371,21 @@ export class SlideAbleDirective {
         this.stopSlidingEvent.emit(this.prepareEventData('stop'));
         document.onmousemove = null;
         document.onmouseup = null;
-        if (this.backupStyle) {
-            for (let idx in this.backupStyle) {
-                this.renderer.setElementStyle(this.el.nativeElement, idx, this.backupStyle[idx]);
-            }
-            this.el.nativeElement.style.left = this.lastX - this.zeroLeft - Math.round(this.el.nativeElement.getBoundingClientRect().width / 2) + 'px';
-            this.el.nativeElement.style.top = this.lastY - this.zeroTop - Math.round(this.el.nativeElement.getBoundingClientRect().height / 2) + 'px';
+
+        this.renderer.setElementClass(this.el.nativeElement, 'sliding', false);
+        if (this.direction == 'horisontal' || this.direction == 'both') {
+            var newLeft = this.lastX - this.zeroLeft - Math.round(this.el.nativeElement.getBoundingClientRect().width / 2);
+            // if (this.direction == 'horisontal' || this.direction == 'both') {
+            // newLeft += window.pageXOffset;
+            // }
+            this.el.nativeElement.style.left = newLeft + 'px';
+        }
+        if (this.direction == 'vertical' || this.direction == 'both') {
+            var newTop = this.lastY - this.zeroTop - Math.round(this.el.nativeElement.getBoundingClientRect().height / 2);
+            // if (this.direction == 'vertical' || this.direction == 'both') {
+            // newTop += window.pageYOffset;
+            // }
+            this.el.nativeElement.style.top = newTop + 'px';
         }
     }
 

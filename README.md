@@ -20,7 +20,8 @@ This directive is used by [Angular 2 Slider Component](https://github.com/Bogdan
 
 # Dependencies
 
-- [Angular 2](https://github.com/angular/angular)  `npm install angular2`
+- Angular 2
+- [Styled Directive](https://github.com/Bogdan1975/ng2-styled-directive)  `npm install ng2-styled-directive`
 
 # Install
 
