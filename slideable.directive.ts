@@ -39,7 +39,8 @@ export class EventSlideAble implements IEventSlideAble {
 @Directive({
     selector: '[slideAble]',
     host: {
-        '(mousedown)': 'slideStart($event)'
+        '(mousedown)': 'slideStart($event)',
+        '(touchstart)': 'slideStart($event)'
     }
 })
 export class SlideAbleDirective {
@@ -237,8 +238,23 @@ export class SlideAbleDirective {
             this.redraw(event.clientX, event.clientY);
         }
 
+        function dragProcessTouch(event) {
+            var touches = event.changedTouches;
+            console.log('Touch');
+            for (var i = 0; i < touches.length; i++) {
+                if (touches[i].target == this.el.nativeElement) {
+                    console.log('Redraw');
+                    this.redraw(touches[i].clientX, touches[i].clientY);
+                }
+            }
+        }
+
         document.onmousemove = dragProcess.bind(this);
+        document.ontouchmove = dragProcessTouch.bind(this);
+
         document.onmouseup = this.slideStop.bind(this);
+        document.ontouchend = this.slideStop.bind(this);
+
 
         if (!this.lastX && this.direction == 'vertical') {
             this.lastX = this.el.nativeElement.getBoundingClientRect().left - parseInt(getComputedStyle(this.el.nativeElement).left) + Math.round(this.el.nativeElement.getBoundingClientRect().width / 2);
@@ -370,7 +386,9 @@ export class SlideAbleDirective {
     slideStop(event) {
         this.stopSlidingEvent.emit(this.prepareEventData('stop'));
         document.onmousemove = null;
+        document.ontouchmove = null;
         document.onmouseup = null;
+        document.ontouchend = null;
 
         this.renderer.setElementClass(this.el.nativeElement, 'sliding', false);
         if (this.direction == 'horisontal' || this.direction == 'both') {
