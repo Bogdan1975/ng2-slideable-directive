@@ -27,12 +27,12 @@ export interface IEventSlideAble {
     instance: SlideAbleDirective;
 }
 export class EventSlideAble implements IEventSlideAble {
-    
+
     boundingRect: ClientRect;
     relativePercentHorisontal: number;
     relativePercentVertical: number;
     elementId: string;
-    
+
     constructor(public type: string, public instance:SlideAbleDirective){}
 }
 
@@ -99,7 +99,7 @@ export class SlideAbleDirective {
      * @deprecated
      */
     @Input() slidingStyle: Object;
-    
+
     @Input() step: any = 1;
     @Input() parent: any = null;
 
@@ -127,7 +127,7 @@ export class SlideAbleDirective {
 
     private zeroLeft;
     private zeroTop;
-    
+
     // Dummies for callback functions
     public checkXBeforeRedraw = null;
     public checkYBeforeRedraw = null;
@@ -136,7 +136,7 @@ export class SlideAbleDirective {
     private lastY = null;
 
     private styledInstance: any;
-    
+
     private scrollPositionX: number;
 
     ngOnInit() {
@@ -175,7 +175,7 @@ export class SlideAbleDirective {
                 }
                 if (styleBlock) styleBlockArray.push(`<.sliding {${styleBlock}}`);
             }
-            
+
             this.styledInstance.styleBlock = styleBlockArray;
             this.styledInstance.ngAfterViewInit();
 
@@ -212,17 +212,17 @@ export class SlideAbleDirective {
         });
 
         var onScrollStop = () => {
-/*            let delta = window.pageXOffset - scrollStartX
-            if (this.lastX) this.lastX -= delta;
-            if (this.zeroLeft) this.zeroLeft -= delta;
-            scrollStartX = window.pageXOffset;
-            scrolling = false;*/
+            /*            let delta = window.pageXOffset - scrollStartX
+             if (this.lastX) this.lastX -= delta;
+             if (this.zeroLeft) this.zeroLeft -= delta;
+             scrollStartX = window.pageXOffset;
+             scrolling = false;*/
         }
 
     }
 
     slideStart(e) {
-        
+
         // deny dragging and selecting
         document.ondragstart = function () {
             return false;
@@ -307,33 +307,26 @@ export class SlideAbleDirective {
 
         // We can't calculate any values that depends from coordinates in ngOnInit, because may be not all page was rendered
         // That's why we calculate these values here
-        if (!this.boundingRect) {
-            this.boundingRect = new BoundingRectClass();
-            this.calcMargins();
-        }
-        
-        if (window.pageXOffset != this.scrollPositionX) {
-            let delta = window.pageXOffset - this.scrollPositionX;
-            if (this.lastX) this.lastX -= delta;
-            if (this.zeroLeft) this.zeroLeft -= delta;
-            this.scrollPositionX = window.pageXOffset;
-        }
+        this.boundingRect = new BoundingRectClass();
+        this.calcMargins();
 
-        if (typeof(this.zeroLeft) === 'undefined') {
-            this.zeroLeft = this.el.nativeElement.getBoundingClientRect().left - parseInt(getComputedStyle(this.el.nativeElement).left);
-            if (isNaN(this.zeroLeft)) this.zeroLeft = 0;
-        }
-        if (typeof(this.zeroTop) === 'undefined') {
-            this.zeroTop = this.el.nativeElement.getBoundingClientRect().top - parseInt(getComputedStyle(this.el.nativeElement).top);
-            if (isNaN(this.zeroTop)) this.zeroTop = 0;
-        }
+        let delta = window.pageXOffset - this.scrollPositionX;
+        if (this.lastX) this.lastX -= delta;
+        if (this.zeroLeft) this.zeroLeft -= delta;
+        this.scrollPositionX = window.pageXOffset;
+
+        this.zeroLeft = this.el.nativeElement.getBoundingClientRect().left - parseInt(getComputedStyle(this.el.nativeElement).left);
+        if (isNaN(this.zeroLeft)) this.zeroLeft = 0;
+        this.zeroTop = this.el.nativeElement.getBoundingClientRect().top - parseInt(getComputedStyle(this.el.nativeElement).top);
+        if (isNaN(this.zeroTop)) this.zeroTop = 0;
+
 
         if (this.direction == 'horisontal' || this.direction == 'both') {
             if (this.lastX) {
                 let k = (x - this.lastX) / this.step;
                 x = this.lastX + Math.round(k) * this.step;
             }
-            
+
             if (x - this.boundingRect.left < -0.8) {
                 x = this.lastX + Math.ceil((this.boundingRect.left - this.lastX) / this.step) * this.step;
             }
@@ -346,7 +339,7 @@ export class SlideAbleDirective {
 
             if (!!this.dynamicLimitRect.left && x < this.dynamicLimitRect.left) x = this.dynamicLimitRect.left;
             if (!!this.dynamicLimitRect.right && x > this.dynamicLimitRect.right) x = this.dynamicLimitRect.right;
-            
+
             // Check callback result to make decigion change horisontal position or not
             if ((typeof(this.checkXBeforeRedraw) !== 'function' || this.checkXBeforeRedraw(x, y)) && x != this.lastX) {
                 // this.el.nativeElement.style.left = x - this.zeroLeft - Math.round(this.el.nativeElement.getBoundingClientRect().width / 2) + window.pageXOffset + 'px';
